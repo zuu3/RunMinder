@@ -7,11 +7,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hive/hive.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:run_minder_google/models/run_record.dart';
 import 'package:run_minder_google/services/location_service.dart';
 import 'package:run_minder_google/services/run_stat_service.dart';
-import 'package:run_minder_google/services/sensor_service.dart';
+// import 'package:run_minder_google/services/sensor_service.dart';
+import 'package:run_minder_google/services/step_counter_service.dart';
 import 'package:run_minder_google/services/camera_service.dart';
 import 'package:run_minder_google/services/notification_service.dart';
 import 'package:run_minder_google/components/photo_marker.dart';
@@ -28,7 +30,7 @@ class TrackingPage extends StatefulWidget {
 class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMixin {
   final locSvc = LocationService();
   final runSvc = RunStatService();
-  final pedSvc = SensorService();
+  final stepSvc = StepCounterService();
   final camSvc = CameraService();
 
   GoogleMapController? _mapCtrl;
@@ -55,7 +57,7 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
     NotificationService.init();
     camSvc.init();
-    pedSvc.stepStream.listen((s) {
+    stepSvc.stepStream.listen((s) {
       if (_state == RunState.running) setState(() => _steps = s);
     });
     runSvc.stream.listen((stat) {
@@ -74,7 +76,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     _pulseController.dispose();
     _fadeController.dispose();
     runSvc.dispose();
-    pedSvc.dispose();
     camSvc.dispose();
     _positionSub?.cancel();
     super.dispose();
@@ -171,7 +172,19 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     setState(() => _markers.add(photo));
   }
 
-  void _start() {
+  Future<bool> _requestActivityPermission() async {
+    final status = await Permission.activityRecognition.request();
+    return status == PermissionStatus.granted;
+  }
+
+  void _start() async {
+    final ok = await _requestActivityPermission();
+    if (!ok) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('걸음수 수집 권한이 필요합니다.')));
+      return;
+    }
     setState(() {
       _state = RunState.running;
       _steps = 0;
@@ -181,7 +194,7 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       _markers.clear();
       NotificationService.show('운동 시작', '좋은 러닝 되세요!');
       runSvc.reset();
-      pedSvc.reset();
+      stepSvc.reset();
     });
     _fadeController.forward();
   }
@@ -226,7 +239,7 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
     _fadeController.reset();
     runSvc.reset();
-    pedSvc.reset();
+    stepSvc.reset();
   }
 
   @override

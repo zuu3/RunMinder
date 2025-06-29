@@ -1,9 +1,20 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val envProps = Properties().apply {
+  val envFile = rootProject.file(".env")
+  if (envFile.exists()) {
+    envFile.inputStream().use { load(it) }
+  }
+}
+
+val mapsApiKey: String = envProps.getProperty("MAPS_API_KEY", "")
 
 android {
     namespace = "com.example.run_minder_google"
@@ -25,16 +36,7 @@ android {
         applicationId = "com.example.run_minder_google"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        def envFile = rootProject.file(".env")
-        def mapsKey = ""
-        if (envFile.exists()) {
-            envFile.eachLine { line ->
-                if (line.startsWith("MAPS_API_KEY=")) {
-                    mapsKey = line.split("=", 2)[1].trim()
-                }
-            }
-        }
-        manifestPlaceholders = [ MAPS_API_KEY: mapsKey ]
+        manifestPlaceholders["com.google.android.geo.API_KEY"] = mapsApiKey
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
